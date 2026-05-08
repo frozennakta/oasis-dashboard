@@ -16,6 +16,11 @@ if not WP_URL or not WP_USER or not WP_APP_PASSWORD:
     st.error("⚠️ .env 파일에 WP_URL, WP_USER, WP_APP_PASSWORD를 설정해주세요.")
     st.stop()
 
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "oasis1234")
+pw = st.text_input("비밀번호를 입력하세요", type="password")
+if pw != DASHBOARD_PASSWORD:
+    st.stop()
+
 auth = (WP_USER, WP_APP_PASSWORD)
 
 with st.form("property_form"):
