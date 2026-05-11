@@ -23,6 +23,7 @@ if pw != DASHBOARD_PASSWORD:
 
 auth = (WP_USER, WP_APP_PASSWORD)
 
+
 @st.cache_data(ttl=3600)
 def fetch_terms(taxonomy):
     resp = requests.get(
@@ -33,6 +34,7 @@ def fetch_terms(taxonomy):
         return {item["name"]: item["id"] for item in resp.json()}
     return {}
 
+
 cities = fetch_terms("property_state")
 districts = fetch_terms("property_city")
 areas = fetch_terms("property_area")
@@ -41,7 +43,7 @@ with st.form("property_form"):
     st.subheader("매물 정보")
 
     title = st.text_input("매물 제목 *", placeholder="예: Gateway Thao Dien | 2BR River View")
-    description = st.text_area("상세 설명", placeholder="매물 상세 설명을 입력하세요...", height=150)
+    description = st.text_area("상세 설명", placeholder="매물 상세 설명을 입력하세요...", height=200)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -74,11 +76,14 @@ with st.form("property_form"):
     address = st.text_input("상세 주소", placeholder="예: District 2, Thao Dien, Ho Chi Minh City")
 
     st.subheader("이미지 업로드")
+    st.caption("💡 폴더 통째로 올리려면 PC에서 파일 탐색기를 열고 **Ctrl+A** 로 전체 선택 후 드래그하세요. 모바일은 사진첩에서 다중 선택.")
     images = st.file_uploader(
         "이미지 선택 (여러 장 가능)",
         type=["jpg", "jpeg", "png", "webp"],
         accept_multiple_files=True,
     )
+    if images:
+        st.info(f"📷 선택된 이미지: {len(images)}장")
 
     submitted = st.form_submit_button("📤 매물 등록하기", use_container_width=True)
 
@@ -97,7 +102,7 @@ if submitted:
             safe_name = img.name.encode("ascii", "ignore").decode("ascii") or f"image_{i}.jpg"
             headers = {
                 "Content-Disposition": f'attachment; filename="{safe_name}"',
-                "Content-Type": img.type,
+                "Content-Type": img.type or "image/jpeg",
             }
             resp = requests.post(
                 f"{WP_URL}/wp-json/wp/v2/media",
@@ -118,37 +123,33 @@ if submitted:
 
     price_str = f"{int(price):,} {currency}/월"
 
-    taxonomies = {}
+    payload = {
+        "title": title,
+        "content": description,
+        "excerpt": description,
+        "meta": {
+            "fave_property_price": str(int(price)),
+            "fave_property_price_prefix": currency,
+            "fave_property_size": str(area_size),
+            "fave_property_bedrooms": str(bedrooms),
+            "fave_property_bathrooms": str(bathrooms),
+            "fave_property_address": address,
+            "fave_property_images": image_ids,
+            "fave_property_sec_deposit": str(deposit_months),
+        },
+    }
+    if featured_id:
+        payload["featured_media"] = featured_id
     if city_name != "선택 안함":
-        taxonomies["property_state"] = [cities[city_name]]
+        payload["property_state"] = [cities[city_name]]
     if district_name != "선택 안함":
-        taxonomies["property_city"] = [districts[district_name]]
+        payload["property_city"] = [districts[district_name]]
     if area_name != "선택 안함":
-        taxonomies["property_area"] = [areas[area_name]]
+        payload["property_area"] = [areas[area_name]]
 
     with st.spinner("매물 등록 중..."):
-        payload = {
-            "title": title,
-            "content": description,
-            "excerpt": description,
-            "status": "publish",
-            "meta": {
-                "fave_property_price": str(int(price)),
-                "fave_property_price_prefix": currency,
-                "fave_property_size": str(area_size),
-                "fave_property_bedrooms": str(bedrooms),
-                "fave_property_bathrooms": str(bathrooms),
-                "fave_property_address": address,
-                "fave_property_images": ",".join(str(i) for i in image_ids),
-                "fave_property_sec_deposit": str(deposit_months),
-            },
-            **taxonomies,
-        }
-        if featured_id:
-            payload["featured_media"] = featured_id
-
         resp = requests.post(
-            f"{WP_URL}/wp-json/wp/v2/properties",
+            f"{WP_URL}/wp-json/oasis/v1/property",
             json=payload,
             auth=auth,
         )
@@ -156,7 +157,7 @@ if submitted:
     if resp.status_code in (200, 201):
         data = resp.json()
         link = data.get("link", "")
-        st.success(f"🎉 매물 등록 완료! ({price_str}, 보증금 {deposit_months}개월)")
+        st.success(f"🎉 매물 등록 완료! ({price_str}, 보증금 {deposit_months}개월, 사진 {len(image_ids)}장)")
         st.markdown(f"[👉 등록된 매물 보기]({link})")
     else:
-        st.error(f"❌ 매물 발행 실패 — HTTP {resp.status_code}: {resp.text[:300]}")
+        st.error(f"❌ 매물 발행 실패 — HTTP {resp.status_code}: {resp.text[:500]}")
