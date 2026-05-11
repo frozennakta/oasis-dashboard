@@ -130,6 +130,7 @@ if submitted:
         payload = {
             "title": title,
             "content": description,
+            "excerpt": description,
             "status": "publish",
             "meta": {
                 "fave_property_price": str(int(price)),
@@ -138,7 +139,7 @@ if submitted:
                 "fave_property_bedrooms": str(bedrooms),
                 "fave_property_bathrooms": str(bathrooms),
                 "fave_property_address": address,
-                "fave_property_images": image_ids,
+                "fave_property_images": ",".join(str(i) for i in image_ids),
                 "fave_property_sec_deposit": str(deposit_months),
             },
             **taxonomies,
