@@ -349,8 +349,9 @@ if submitted:
             "price_str": price_str,
             "photo_count": len(image_ids),
         }
-        # 다음 등록을 위해 제목 필드 초기화 (자동 생성 다시 받기)
-        st.session_state.title_field = ""
+        # 다음 등록을 위해 제목 필드 초기화 (Streamlit은 widget key를 직접 재할당 못 함 → del 사용)
+        for k in ("title_field", "city", "district", "area"):
+            st.session_state.pop(k, None)
         st.rerun()
     else:
         st.error(f"❌ 매물 등록 실패 — HTTP {resp.status_code}")
